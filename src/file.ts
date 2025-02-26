@@ -1,5 +1,7 @@
 import { Motoko, WasmMode } from '.';
 
+export type ScopeCache = unknown; // TODO: narrower type
+
 function getValidPath(path: string): string {
     if (typeof path !== 'string') {
         throw new Error('File path must be a string');
@@ -68,6 +70,9 @@ export const file = (mo: Motoko, path: string) => {
         },
         parseMotokoTyped() {
             return mo.parseMotokoTyped(path);
+        },
+        parseMotokoTypedLsp(cache: ScopeCache | undefined) {
+            return mo.parseMotokoTypedLsp(path, cache);
         },
     };
     return result;

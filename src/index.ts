@@ -1,5 +1,5 @@
 import { CompilerNode, Node, simplifyAST } from './ast';
-import { file } from './file';
+import { ScopeCache, file } from './file';
 import {
     Package,
     PackageInfo,
@@ -63,13 +63,26 @@ export default function wrapMotoko(compiler: Compiler) {
             throw new Error(
                 result.diagnostics
                     ? result.diagnostics
-                          .map(({ message }: Diagnostic) => message)
-                          .join('; ')
+                        .map(({ message }: Diagnostic) => message)
+                        .join('; ')
                     : '(no diagnostics)',
             );
         }
         return result.code;
     };
+
+    function simplifyParseMotokoTypedResults(
+        results: any,
+    ): ParseMotokoTypedResult[] {
+        return results.map(
+            ({ ast, typ }: { ast: CompilerNode; typ: CompilerNode }) => {
+                return {
+                    ast: simplifyAST(ast),
+                    type: simplifyAST(typ),
+                };
+            },
+        );
+    }
 
     // Function signatures for `mo.parseMotokoTyped()`
     type ParseMotokoTypedResult = { ast: Node; type: Node };
@@ -81,14 +94,31 @@ export default function wrapMotoko(compiler: Compiler) {
         if (typeof paths === 'string') {
             return mo.parseMotokoTyped([paths])[0];
         }
-        return invoke('parseMotokoTyped', true, [paths]).map(
-            ({ ast, typ }: { ast: CompilerNode; typ: CompilerNode }) => {
-                return {
-                    ast: simplifyAST(ast),
-                    type: simplifyAST(typ),
-                };
-            },
+        return simplifyParseMotokoTypedResults(
+            invoke('parseMotokoTyped', true, [paths]),
         );
+    }
+
+    // Function signatures for `mo.parseMotokoTypedLsp()`
+    function parseMotokoTypedLsp(
+        paths: string,
+        inCache: ScopeCache | undefined,
+    ): [ParseMotokoTypedResult, ScopeCache];
+    function parseMotokoTypedLsp(
+        paths: string[],
+        inCache: ScopeCache | undefined,
+    ): [ParseMotokoTypedResult[], ScopeCache];
+    function parseMotokoTypedLsp(
+        paths: string | string[],
+        inCache: ScopeCache | undefined,
+    ): [ParseMotokoTypedResult | ParseMotokoTypedResult[], ScopeCache] {
+        if (typeof paths === 'string') {
+            const [progs, outCache] = mo.parseMotokoTypedLsp([paths], inCache);
+            return [progs[0], outCache];
+        }
+        const [_, progs, outCache] =
+            invoke('parseMotokoTypedLsp', true, [paths, inCache]);
+        return [simplifyParseMotokoTypedResults(progs), outCache];
     }
 
     const mo = {
@@ -189,6 +219,7 @@ export default function wrapMotoko(compiler: Compiler) {
             return simplifyAST(ast);
         },
         parseMotokoTyped,
+        parseMotokoTypedLsp,
         resolveMain(directory: string = ''): string | undefined {
             return resolveMain(mo, directory);
         },
