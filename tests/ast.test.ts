@@ -1,5 +1,6 @@
 import mo from '../src/versions/moc';
-import { Node, asNode, AST } from '../src/ast';
+import { Node, asNode } from '../src/ast';
+import { Scope } from '../src/file';
 
 const actorSource = `
 import { print } "mo:base/Debug";
@@ -37,7 +38,7 @@ describe('ast', () => {
                 }
             }
         };
-        const node = asNode(file.parseMotokoTyped().ast);
+        const node = asNode(file.parseMotokoTyped(new Map<string, Scope>())[0].ast);
         expect(node).toBeTruthy();
         check(node!);
     });
