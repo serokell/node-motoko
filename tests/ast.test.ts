@@ -171,4 +171,20 @@ describe('ast', () => {
         expect(progTop.ast).toBeTruthy();
         expect(progTop.immediateImports).toEqual(['Bottom.mo']);
     });
+
+    test('immediate imports for top', async () => {
+        const [top, _bottom] = loadTopAndBottom();
+
+        const { ast, immediateImports } = top.parseMotokoWithDeps();
+        expect(ast).toBeTruthy();
+        expect(immediateImports).toEqual(['Bottom.mo']);
+    });
+
+    test('immediate imports for bottom', async () => {
+        const [_top, bottom] = loadTopAndBottom();
+
+        const { ast, immediateImports } = bottom.parseMotokoWithDeps();
+        expect(ast).toBeTruthy();
+        expect(immediateImports).toEqual([]);
+    });
 });
