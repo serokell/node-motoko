@@ -23,13 +23,15 @@ export const file = (mo: Motoko, path: string) => {
     function parseMotokoTyped(): ParseMotokoTypedResult;
     function parseMotokoTyped(
         scopeCache: ScopeCache,
+        enableRecovery?: boolean,
     ): [ParseMotokoTypedResult, ScopeCache];
     function parseMotokoTyped(
         scopeCache?: ScopeCache,
+        enableRecovery?: boolean,
     ): [ParseMotokoTypedResult, ScopeCache] | ParseMotokoTypedResult {
         // Handle the case when the cache is not passed for backwards
         // compatibility and return the program alone to keep the old behavior.
-        const result = mo.parseMotokoTyped(path, scopeCache);
+        const result = mo.parseMotokoTyped(path, scopeCache, enableRecovery);
         return arguments.length === 0 ? result[0] : result;
     }
 
@@ -79,11 +81,11 @@ export const file = (mo: Motoko, path: string) => {
         parseCandid() {
             return mo.parseCandid(result.read());
         },
-        parseMotoko() {
-            return mo.parseMotoko(result.read());
+        parseMotoko(enableRecovery?: boolean) {
+            return mo.parseMotoko(result.read(), enableRecovery);
         },
-        parseMotokoWithDeps() {
-            return mo.parseMotokoWithDeps(path, result.read());
+        parseMotokoWithDeps(enableRecovery?: boolean) {
+            return mo.parseMotokoWithDeps(path, result.read(), enableRecovery);
         },
         parseMotokoTyped,
     };

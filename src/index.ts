@@ -78,41 +78,49 @@ export default function wrapMotoko(compiler: Compiler) {
     };
 
     // Function signatures for `mo.parseMotokoTyped()`
+    /* old API, doesn't support cache and recovery */
     function parseMotokoTyped(paths: string): ParseMotokoTypedResult;
     function parseMotokoTyped(paths: string[]): ParseMotokoTypedResult[];
+    /* new API: */
     function parseMotokoTyped(
         paths: string,
         scopeCache: ScopeCache,
+        enable_recovery?: boolean,
     ): [ParseMotokoTypedResult, ScopeCache];
     function parseMotokoTyped(
         paths: string[],
         scopeCache: ScopeCache,
+        enable_recovery?: boolean,
     ): [ParseMotokoTypedResult[], ScopeCache];
     function parseMotokoTyped(
         paths: string | string[],
         scopeCache?: ScopeCache,
+        enableRecovery?: boolean,
     ): [ParseMotokoTypedResult | ParseMotokoTypedResult[], ScopeCache]
         | ParseMotokoTypedResult
         | ParseMotokoTypedResult[] {
         // Handle the case when the cache is not passed for backwards
         // compatibility and return the program alone to keep the old behavior.
+        if (enableRecovery === undefined) {
+            enableRecovery = false;
+        }
         if (arguments.length === 1) {
             if (typeof paths === 'string') {
                 const [progs, _outCache] =
-                    mo.parseMotokoTyped([paths], new Map<string, Scope>());
+                    mo.parseMotokoTyped([paths], new Map<string, Scope>(), enableRecovery);
                 return progs[0];
             } else {
                 const [progs, _outCache] =
-                    mo.parseMotokoTyped(paths, new Map<string, Scope>());
+                    mo.parseMotokoTyped(paths, new Map<string, Scope>(), enableRecovery);
                 return progs;
             }
         }
         if (typeof paths === 'string') {
-            const [progs, outCache] = mo.parseMotokoTyped([paths], scopeCache);
+            const [progs, outCache] = mo.parseMotokoTyped([paths], scopeCache, enableRecovery);
             return [progs[0], outCache];
         }
         const [progs, outCache] =
-            invoke('parseMotokoTyped', true, [paths, scopeCache]);
+            invoke('parseMotokoTyped', true, [enableRecovery, paths, scopeCache]);
         return [
             progs.map(
                 ({ ast, typ, immediateImports }: {
@@ -224,16 +232,17 @@ export default function wrapMotoko(compiler: Compiler) {
         parseCandid(content: string): object {
             return invoke('parseCandid', true, [content]);
         },
-        parseMotoko(content: string): Node {
-            const ast = invoke('parseMotoko', true, [content]);
+        parseMotoko(content: string, enableRecovery = false): Node {
+            const ast = invoke('parseMotoko', true, [enableRecovery, content]);
             return simplifyAST(ast);
         },
         parseMotokoWithDeps(
             path: string,
             content: string,
+            enableRecovery = false,
         ): { ast: Node, immediateImports: string[] } {
             const { ast, immediateImports } =
-                invoke('parseMotokoWithDeps', true, [path, content]);
+                invoke('parseMotokoWithDeps', true, [enableRecovery, path, content]);
             return { ast: simplifyAST(ast), immediateImports };
         },
         parseMotokoTyped,
