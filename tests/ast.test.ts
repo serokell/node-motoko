@@ -1,5 +1,5 @@
 import mo from '../src/versions/moc';
-import { Node, asNode, AST } from '../src/ast';
+import { AST, Node, asNode } from '../src/ast';
 import { Scope } from '../src/file';
 import fs from 'fs';
 import path from 'path';
@@ -33,6 +33,27 @@ function loadTopAndBottom() {
     const top = mo.file('Top.mo');
     top.write(fs.readFileSync(path.join(root, 'Top.mo'), 'utf-8'));
     return [top, bottom];
+}
+
+function ignoreGeneratedScopeVar(ast: AST): AST {
+    if (Array.isArray(ast)) {
+        return ast.map(ignoreGeneratedScopeVar);
+    }
+    if (typeof ast === 'string') {
+        if (/^\$__\d+$/.test(ast)) {
+            return '$__ignored-scope-var';
+        }
+        return ast;
+    }
+    if (ast) {
+        if (ast.args) {
+            ast.args = ast.args.map(ignoreGeneratedScopeVar);
+        }
+        if (ast.typeRep) {
+            ast.typeRep = ignoreGeneratedScopeVar(ast.typeRep) as Node;
+        }
+    }
+    return ast;
 }
 
 describe('ast', () => {
@@ -87,7 +108,7 @@ describe('ast', () => {
 
         const [prog1, cache1] = file.parseMotokoTypedWithScopeCache(cache0);
         expect(cache1).toEqual(cache0);
-        expect(prog1.ast).toStrictEqual(prog0.ast);
+        expect(ignoreGeneratedScopeVar(prog1.ast)).toStrictEqual(ignoreGeneratedScopeVar(prog0.ast));
         expect(prog1.immediateImports).toEqual(prog0.immediateImports);
     });
 
@@ -103,7 +124,7 @@ describe('ast', () => {
         expect(cache1).toEqual(cache0Clone);
         expect(prog1.ast).toBeTruthy();
         expect(prog1.immediateImports).toEqual(prog0.immediateImports);
-        expect(prog1.ast).toStrictEqual(prog0.ast);
+        expect(ignoreGeneratedScopeVar(prog1.ast)).toStrictEqual(ignoreGeneratedScopeVar(prog0.ast));
     });
 
     test('changed file should have different caches', async () => {
@@ -142,7 +163,7 @@ describe('ast', () => {
         expect(Array.from(cache1.keys())).toEqual(['Bottom.mo']);
         expect(prog1.ast).toBeTruthy();
         expect(prog1.immediateImports).toEqual(prog0.immediateImports);
-        expect(prog1.ast).toStrictEqual(prog0.ast);
+        expect(ignoreGeneratedScopeVar(prog1.ast)).toStrictEqual(ignoreGeneratedScopeVar(prog0.ast));
     });
 
     test('invalidating an unchanged file and reference should yield the same scope', async () => {
@@ -158,7 +179,7 @@ describe('ast', () => {
         expect(Array.from(cache1.keys())).toEqual(['Bottom.mo']);
         expect(prog1.ast).toBeTruthy();
         expect(prog1.immediateImports).toEqual(prog0.immediateImports);
-        expect(prog1.ast).toStrictEqual(prog0.ast);
+        expect(ignoreGeneratedScopeVar(prog1.ast)).toStrictEqual(ignoreGeneratedScopeVar(prog0.ast));
     });
 
     test('load bottom after top should work', async () => {
@@ -190,13 +211,12 @@ describe('ast', () => {
 
     test('parseMotoko with error recovery', async () => {
         const ast1 = mo.parseMotoko('let x = 1 + 2 let y = 2', /*enableRecovery=*/true);
-        expect(asNode(ast1.args[0]).name).toBe("LetD");
-        expect(asNode(ast1.args[1]).name).toBe("LetD");
-        
-        const ast2 = mo.parseMotoko('let x = 1 + ', /*enableRecovery=*/true);
-        expect(asNode(ast2.args[0]).name).toBe("LetD");
-    });
+        expect(asNode(ast1.args![0])!.name).toBe("LetD");
+        expect(asNode(ast1.args![1])!.name).toBe("LetD");
 
+        const ast2 = mo.parseMotoko('let x = 1 + ', /*enableRecovery=*/true);
+        expect(asNode(ast2.args![0])!.name).toBe("LetD");
+    });
 
     // TODO: parseMotokoTypedWithScopeCache has API of error recovery, but still drop the value
     // test('parseMotokoTypedWithScopeCache with error recovery', async () => {
